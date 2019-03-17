@@ -1,0 +1,61 @@
+---
+title: "Battles"
+author: "Belen"
+date: "15 de marzo de 2019"
+output:
+  html_document:
+    df_print: paged 
+    toc : true
+    toc_float: 
+      collapsed: false
+    number_sections: true 
+    theme: cosmo  
+--- 
+```{r setup, include=FALSE, warning=FALSE, error=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+
+# ¿Qué fuerza tienen los commanders sobre sus ejércitos?
+
+```{r echo=FALSE, warning=FALSE}
+# Cargar Librerías
+library(ggplot2)
+library(knitr)
+library(tidyverse)
+```
+
+# Lectura de los datos
+```{r}
+datos = read.csv("data/battles.csv")
+datos
+```
+
+
+# Preprocesamiento
+## Valores nulos
+¿Cuántos valores nulos hay de cada una de las columnas?
+```{r}
+na_count <-sapply(datos, function(y) sum(length(which(is.na(y)))))
+na_count <- as.data.frame(na_count)
+na_count["cols"] <- colnames(datos)
+na_count <- na_count %>% arrange(des(na_count))
+
+ggplot(data=na_count, aes(x=cols, y=na_count, color = cols)) + 
+    geom_bar(stat="identity", fill="white") + coord_flip()
+```
+
+Ordenamos las columnas en base al número de valores nulos y vemos cuáles son las 5 columnas con más valores nulos:
+```{r}
+na_count[1:5,]
+
+```
+Como primer paso de preprocesamiento  eliminaremos aquellas columnas que tengan más de un 40% de valores NULOS
+```{r}
+datos_p1 <- datos[lapply( datos, function(x) sum(is.na(x)) / length(x) ) < 0.4]
+datos_p1
+
+```
+
+
+
