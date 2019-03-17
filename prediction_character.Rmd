@@ -1,0 +1,21 @@
+---
+title: "Character Predictions"
+date: "15 de marzo de 2019"
+output:
+  html_document:
+    df_print: paged 
+    toc : true
+    toc_float: 
+      collapsed: false
+    number_sections: true 
+    theme: cosmo  
+--- 
+```{r setup, include=FALSE, warning=FALSE, error=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+# TÍTULO
+
+## SUBTÍTULO
+
+DALE DON DALE
