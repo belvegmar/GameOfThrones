@@ -104,6 +104,15 @@ battle<-datos_p2 %>% select(name,year,attacker_king,defender_king,attacker_outco
 
 
 ```{r}
+#Recoger solo el primer commander que aparezca en la lista
+a <- c()
+
+for (i in 1:length(battle$attacker_commander))
+  a[i] = strsplit(battle$attacker_commander[i], ",")[[1]]
+
+  
+battle$attacker_commander <- a
+
 
 ```
 
@@ -128,13 +137,10 @@ print(g1)
 ```
 De estos dos gráficos podemos observar que Mance Rayder y Renly Baratheon sólo se han ocupado de defender sus terrenos, no se han preocupado por atacar a ninguno. Además también se observa que como en la serie, los que siempre están comprometidos en algo son los Baratheon y los Stark. 
 
-### Número de batallas ganadas por los atacantes
-
-
 ### Reyes contra reyes
 ```{r, echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
 library(ggthemes)
-ggplot(data = battle, aes(x = defender_king,fill=attacker_outcome)) +
+g2 <- ggplot(data = battle, aes(x = defender_king,fill=attacker_outcome)) +
   geom_bar(width=0.5) +
   theme_tufte(base_size=14,ticks = F) +
   scale_fill_few()+
@@ -142,4 +148,30 @@ ggplot(data = battle, aes(x = defender_king,fill=attacker_outcome)) +
   scale_y_continuous(breaks=seq(0, max( table(battle$defender_king,battle$attacker_king)), 2))+
   facet_wrap(~ attacker_king)+coord_flip()+
   xlab("Rey Defensor") + ylab("Número de batallas")
+print(g2)
 ```
+Según el gráfico anterior parecer ser que las casas que están más enfrentadas son la Baratheon y la Stark, por lo tanto puede que el commander que más exito tenga sea uno perteneciente a una de estas casas, ya que el número de batallas es meyor y por lo tanto se tendrán más datos. Aún así, esto es solo una suposición, tendremos que indagar un poco más para poder contestar a la pregunta principal.
+
+
+### Número de batallas ganadas por cada commander atacante
+El siguiente paso será visualizar el número de batallas ganadas y perdidas para cada uno de los commanders, dependiendo de a qué rey sirvan.
+```{r,  fig.width=10, fig.height=8}
+g3 <- ggplot(data = battle, aes(x = attacker_commander,fill=attacker_outcome)) +
+  geom_bar(width=0.5) +
+  theme_tufte(base_size=14,ticks = F) +
+  scale_fill_few()+
+  geom_hline(yintercept=seq(0, 6, 1), col="white", lwd=1)+
+  scale_y_continuous(breaks=seq(0, 6))+
+  coord_flip()+
+  xlab("Commander Atacante") + ylab("Número de batallas")
+print(g3)
+```
+
+```{r}
+robb <- subset(battle,attacker_commander=="Robb Stark")
+gregor <- subset(battle, attacker_commander=="Gregor Clegane")
+robb_gregor <- rbind(robb, gregor)
+table(robb_gregor$attacker_commander, robb_gregor$attacker_king)
+```
+
+Como se dijo antes, parece ser que los dos commanders que tienen más prestigio y que han ganado más batallas están a las órdenes de los dos reinos que más se enfrentan entre ellos.
