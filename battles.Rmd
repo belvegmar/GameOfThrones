@@ -295,12 +295,14 @@ Por último, hemos definido un ratio que nos servirá para escoger qué commande
 ```{r}
 ratio <- c()
 for (i in 1:length(battle_record$commanders)){
-  ratio[i] = ((battle_record$attack_win[i] + battle_record$defend_win[i])/
-    (battle_record$attack_win[i] + battle_record$defend_win[i] + battle_record$attack_loss[i]+battle_record$defend_loss[i]))*100
+  f1 = battle_record$attack_win[i]/38
+  f2 = battle_record$defend_win[i]/38
+
+  ratio[i] = f1+f2
 }
 
 battle_record <- cbind.data.frame(battle_record, ratio)
-battle_record <- battle_record %>% arrange(desc(ratio))
+#battle_record <- battle_record %>% arrange(desc(ratio))
 ```
 
 ```{r}
