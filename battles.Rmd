@@ -108,14 +108,20 @@ battle<-datos_p2 %>% select(name,year,attacker_king,defender_king,attacker_outco
 a <- c()
 
 for (i in 1:length(battle$attacker_commander))
-  a[i] = strsplit(battle$attacker_commander[i], ",")[[1]]
-
+  a[i] = strsplit(battle$attacker_commander[i], ",")[[1]][1]
   
 battle$attacker_commander <- a
 
-
 ```
 
+```{r}
+def <- c()
+
+for (i in 1:length(battle$defender_commander))
+  def[i] <- strsplit(battle$defender_commander[i], ",")[[1]][1]
+
+battle$defender_commander <- def
+```
 
 ## Visualización
 ### ¿Qué rey ha atacado más?
@@ -174,4 +180,131 @@ robb_gregor <- rbind(robb, gregor)
 table(robb_gregor$attacker_commander, robb_gregor$attacker_king)
 ```
 
-Como se dijo antes, parece ser que los dos commanders que tienen más prestigio y que han ganado más batallas están a las órdenes de los dos reinos que más se enfrentan entre ellos.
+Como se dijo antes, parece ser que los dos commanders atacantes que tienen más prestigio y que han ganado más batallas están a las órdenes de los dos reinos que más se enfrentan entre ellos.
+
+### Commanders atacantes y defensores
+Hasta ahora solo se han tenido en cuenta los commanders atacantes, sin embargo, para poder sacar conclusiones hay que tener en cuenta también las batallas ganadas por los defensores.
+
+```{r}
+#Crear una lista con los valores unicos de commanders atacantes y defensores
+attackers <- battle$attacker_commander
+defenders <- battle$defender_commander
+
+commanders <- unique(c(attackers, defenders))
+
+```
+
+1. El primer paso será contar el número de veces que un commander ha atacado satisfactoriamente:
+```{r}
+attack_win <- c()
+for (i in 1:length(commanders)){
+  win = 0
+  for ( j in 1:length(battle$name)){
+    if (battle$attacker_commander[j] == commanders[i] && battle$attacker_outcome[j]=="win"){
+      win = win +1
+    }else{
+      win = win +0
+    }
+  }
+  attack_win[i] <- win
+}
+  
+attack_win_commander <- cbind(commanders, attack_win)
+```
+
+2. El segundo paso será contar el número de veces que un commander ha defendido satisfactoriamente:
+```{r}
+defend_win <- c()
+for (i in 1:length(commanders)){
+  win = 0
+  for ( j in 1:length(battle$name)){
+    #print(battle$defender_commander[j] == commanders[i] && battle$attacker_outcome!="win")
+    if (battle$defender_commander[j] == commanders[i] && battle$attacker_outcome[j]!="win"){
+      win = win +1
+    }else{
+      win = win +0
+    }
+  }
+  defend_win[i] <- win
+}
+  
+defend_win_commander <- cbind(commanders, defend_win)
+```
+
+
+3. El tercer paso será contar el número de veces que un atacante ha perdido la batalla
+```{r}
+attack_loss <- c()
+for (i in 1:length(commanders)){
+  loss = 0
+  for ( j in 1:length(battle$name)){
+    if (battle$attacker_commander[j] == commanders[i] && battle$attacker_outcome[j]!="win"){
+      loss = loss +1
+    }else{
+      loss = loss +0
+    }
+  }
+  attack_loss[i] <- loss
+}
+  
+attack_loss_commander <- cbind(commanders, attack_loss)
+```
+
+
+
+
+4. El cuarto paso será contar el número de veces que un defensor ha perdido la batalla
+```{r}
+defend_loss <- c()
+for (i in 1:length(commanders)){
+  loss = 0
+  for ( j in 1:length(battle$name)){
+    if (battle$defender_commander[j] == commanders[i] && battle$attacker_outcome[j]=="win"){
+      loss = loss +1
+    }else{
+      loss = loss +0
+    }
+  }
+  defend_loss[i] <- loss
+}
+  
+defend_loss_commander <- cbind(commanders, defend_loss)
+```
+
+Creamos un dataframe con los commanders y sus puntuaciones:
+```{r}
+battle_record <- cbind.data.frame(commanders, attack_win, attack_loss, defend_win, defend_loss)
+```
+
+```{r, fig.height=10}
+library(gridExtra)
+g1 <- ggplot(battle_record, aes(x=commanders, y = c(attack_win))) + geom_bar(stat="identity") + coord_flip() +theme_minimal()
+
+g2 <- ggplot(battle_record, aes(x=commanders, y = c(attack_loss))) + geom_bar(stat="identity") + coord_flip() +theme_minimal() + theme(axis.text.y = element_blank(), axis.title.y =  element_blank()) 
+
+g3 <- ggplot(battle_record, aes(x=commanders, y = c(defend_win))) + geom_bar(stat="identity") + coord_flip() +theme_minimal() + theme(axis.text.y = element_blank(), axis.title.y =  element_blank()) 
+
+g4 <- ggplot(battle_record, aes(x=commanders, y = c(defend_loss))) + geom_bar(stat="identity") + coord_flip()+theme_minimal() + theme(axis.text.y = element_blank(), axis.title.y =  element_blank()) + ylim(0,1.5)
+
+grid.arrange(g1, g2, g3, g4, ncol=4)
+
+
+```
+
+Por último, hemos definido un ratio que nos servirá para escoger qué commander es el mejor de entre todos los que hay, este índice consiste en el ratio entre las batallas ganadas (attack_win + deffend_win) y las batallas totales en las que ha participado.
+```{r}
+ratio <- c()
+for (i in 1:length(battle_record$commanders)){
+  ratio[i] = ((battle_record$attack_win[i] + battle_record$defend_win[i])/
+    (battle_record$attack_win[i] + battle_record$defend_win[i] + battle_record$attack_loss[i]+battle_record$defend_loss[i]))*100
+}
+
+battle_record <- cbind.data.frame(battle_record, ratio)
+battle_record <- battle_record %>% arrange(desc(ratio))
+```
+
+```{r}
+head(battle_record,4)
+```
+
+Como ya suponíamos desde un momento, el primer commander es Gregor Clegane
