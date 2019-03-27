@@ -1,0 +1,293 @@
+---
+title: "BattlesMarina"
+author: "Marina"
+date: "19 de marzo de 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+# ¿Cuanto afecta el tamaño del ejercito de los atacantes y los defensores en el resultado final?
+
+```{r}
+# Cargar Librerias
+library(ggplot2)
+library(knitr)
+library(tidyverse)
+```
+
+##Lectura de datos 
+
+```{r}
+datosBatallas = read.csv("DataSets/battles.csv")
+datosBatallas
+```
+
+##Preprocesamiento
+```{r}
+##Calculo del porcentaje de valores nulos para cada aributo
+
+porcentaje_nulos<- function(dataSet){
+    atributos_numeronulos<-sapply(dataSet, function(x) sum(is.na(x)))
+    for (x in 1:length(atributos_numeronulos)){
+        if(atributos_numeronulos[x]!=0){
+            porcentaje <-(atributos_numeronulos[x]/length(dataSet[,x]))*100
+            print(paste0(names(dataSet[x]), ": ", porcentaje, "% de valores nulos"))
+        }
+    }
+}
+```
+
+```{r}
+porcentaje_nulos(datosBatallas)
+```
+
+
+#Eliminaremos aquellas columnas que tengan mas de un 50% de valores nulos
+```{r}
+datosBatallas$defender_3=NULL
+datosBatallas$defender_4=NULL
+```
+
+Previo a la transformación del resto de valores nulos de las columnas que quedan, vamos a comprobar si para los atributos que intervienen en nuestra pregunta tenemos outliers.
+
+```{r}
+boxplot(datosBatallas$attacker_size,data=datosBatallas) 
+boxplot(datosBatallas$defender_size,data=datosBatallas) 
+```
+Como se aprecia en la imagen anterior, la columna de attacker_size tiene un outlier que eliminaremos ya que es muy diferente al resto de valores de la columna.
+```{r}
+#Eliminamos el outlier de la columna attacker_size
+datosBatallas<-datosBatallas[-28,1:23]
+datosBatallas
+```
+
+
+```{r}
+#Eliminar columna irrelevantes
+datosBatallas$attacker_2=NULL
+datosBatallas$attacker_3=NULL
+datosBatallas$attacker_4=NULL
+datosBatallas$defender_2=NULL
+datosBatallas$battle_number=NULL
+datosBatallas$location=NULL
+datosBatallas$note=NULL
+```
+
+
+Aun tenemos columnas con valores nulos, a continuacion se explicaran cuales han sido las decisiones a tomar:
+* __attacker_king y defender_king__ : se cambiaran los valores nulos por "Without a king"
+* __attacker_2, attacker_3, attacker_4 y defender_2__: son columnas que no hemos considerado de interes, solo el primer atacante y el primer defensor, por lo que seran eliminadas
+* __defender_1__: se sustituira el valor por "Pedestrians"
+* __ major_death, major_capture, notes y summer__: columnas irrelevantes para responder a la pregunta, por lo tanto seran eliminadas
+* __attacker_size__: los valores faltantes seran sustituidos por la media del tamano del ejercito para cada uno de los reyes, habiendo eliminado previamente el outlier que contiene la columna.
+* __defender_size__: los valores faltantes seran sustituidos por la media del tamano del ejercito para cada uno de los reyes
+* __attacker_commander y defender_commander__: estos valores seran sustitidos por "Without a commander"
+* __location__: como se tiene la informacion de la region se optara por eliminar esta columna
+* __attacker_outcome__: solo hay un valor nulo, por lo que se ha decidido buscar la informacion correspondiente [https://gameofthrones.fandom.com/wiki/Battle_of_Winterfell] y rellenar este dato
+
+
+```{r}
+#Sustituir valores nulos
+datos_pre <- datosBatallas
+datos_pre$attacker_king <- datos_pre$attacker_king %>% replace_na("Without a king")
+datos_pre$defender_king <- datos_pre$defender_king %>% replace_na("Without a king")
+datos_pre$defender_1 <- datos_pre$defender_1 %>% replace_na("Pedestrians")
+datos_pre$attacker_outcome <- datos_pre$attacker_outcome %>% replace_na("loss")
+```
+
+
+```{r}
+#Sustituir el unico valor nulo de la columna attacker_outcome https://gameofthrones.fandom.com/wiki/Battle_of_Winterfell
+
+datos_pre$attacker_outcome[37]<-"loss"
+attach(datos_pre)
+```
+
+
+```{r}
+#sustituir los tamanos de los ejercitos por la media segun el rey
+datos_pre$attacker_size <- with(datos_pre, ave(datos_pre$attacker_size, datos_pre$attacker_king,
+    FUN = function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))))
+
+datos_pre$defender_size <- with(datos_pre, ave(datos_pre$defender_size, datos_pre$defender_king,
+    FUN = function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))))
+```
+```{r}
+for (x in 1:length(datos_pre$defender_size)){
+  if(is.na(datos_pre$defender_size[x])){
+    datos_pre$defender_size[x] = mean(datos_pre$defender_size, na.rm = TRUE)
+  }
+}
+
+for (x in 1:length(datos_pre$attacker_size)){
+  if(is.na(datos_pre$attacker_size[x])){
+    datos_pre$attacker_size[x] = mean(datos_pre$attacker_size, na.rm = TRUE)
+  }
+}
+datos_pre
+
+
+```
+
+```{r}
+battle<-datos_pre
+battle
+```
+
+##Generacion de nuevos datos
+Debido a que vamos a realizar test estadisticos para responder a la pregunta establecida y asi saber si los atributos que vamos a analizar tienen dependecia, hemos considerado necesario generar nuevos datos con la funcion SMOTE debido al pequeño tamaño del DataSet con el que estamos trabajando, haciendo asi que los test estadisticos que vamos a ejecutar trabajen mejor.
+
+```{r}
+#GENERACION DE NUEVOS DATOS CON SMOTE
+library(DMwR)
+
+#Renombramos los datos y cambiamos el attacker_outcome a factor
+batallas<- battle
+batallas[,'attacker_outcome']<-factor(batallas[,'attacker_outcome'])
+class(batallas$attacker_outcome)
+
+
+datosNuevos <- SMOTE(attacker_outcome ~ ., batallas, perc.over = 500,perc.under=100)
+datosNuevos
+```
+Como se aprecia, se han generado 55 nuevos datos, lo cuales tienen valores NaN para las columnas attacker_sizey defender_size, por lo que volveremos a rellenar estos datos nulos con la media del resto, como se hizo en el preprocesamiento original.
+
+```{r}
+#Unificamos los dos dataSets
+batallasDef = rbind(batallas, datosNuevos)
+attach(batallasDef)
+```
+
+```{r}
+#sustituir los tamanos de los ejercitos por la media segun el rey
+for (x in 1:length(batallasDef$defender_size)){
+  if(is.na(batallasDef$defender_size[x])){
+    batallasDef$defender_size[x] = mean(batallasDef$defender_size, na.rm = TRUE)
+  }
+}
+
+for (x in 1:length(batallasDef$attacker_size)){
+  if(is.na(batallasDef$attacker_size[x])){
+    batallasDef$attacker_size[x] = mean(batallasDef$attacker_size, na.rm = TRUE)
+  }
+}
+
+batallasDef
+```
+
+
+#Visualizacion
+Antes de lanzar el Test de Student, vamos a analizar si las variables attacker_size y defender_size siguen una distribución normal. Para ello, vamos a observar el historiograma de ambas clases (para tener una vision previa de si sigue o no distribucion normal) y posteriormente lanzaremos el test de Saphiro.
+
+```{r}
+#Historiogramas de attacker_size y defender_size
+hist(batallasDef$defender_size, col = "blue", nclass = 20)
+hist(batallasDef$attacker_size, col = "blue", nclass = 20)
+```
+
+```{r}
+#Corroboramos con el test de Saphiro que la distribucion no es normal
+shapiro.test(batallasDef$defender_size)
+shapiro.test(batallasDef$attacker_size)
+```
+
+Como se comprueba con el test de Saphiro y tal y como se habia evidenciado con el historiograma, los atributos defender_size y attacker_size no siguen una distribucion normal. A continuacion normalizaremos estas columnas. Para conocer la tecnica que mejor normaliza la distribucion de las variables, lanzaremos la funcion *bestNormalize*, la cual nos indica qué tecnica es idonea para normalizar un atributo en concreto.
+
+```{r}
+#Mejor tecnica de normalizacion para ATTACKER_SIZE
+library(bestNormalize)
+(boxcox_obj <- bestNormalize(batallasDef$attacker_size))
+```
+
+Como se aprecia, la tecnica de mejor normalizacion escogida es orderNorm, por lo que procedemos a ejecutarla para este atributo 
+
+```{r}
+x<-batallasDef$attacker_size
+
+orderNorm_obj <- orderNorm(x)
+predict(orderNorm_obj, newdata = batallasDef$attacker_size)
+
+```
+
+
+```{r}
+
+#orderNorm_obj$x.t
+hist(orderNorm_obj$x.t, col = "blue", nclass = 20)
+```
+Como se aprecia en la imagen anterior, vemos un historiograma en el que los datos siguen una distribución normal. Repetimos el proceso para el atributo defender_size.
+
+```{r}
+(boxcox_obj <- bestNormalize(batallasDef$defender_size))
+
+y<-batallasDef$defender_size
+
+orderNorm_obj2 <- orderNorm(y)
+predict(orderNorm_obj2, newdata = batallasDef$defender_size)
+```
+
+```{r}
+hist(orderNorm_obj2$x.t, col = "blue", nclass = 20)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+library(ggthemes)
+```
+
+
+```{r}
+g1 <- ggplot(aes(x = factor(attacker_outcome)), data = battle, fill=factor(attacker_outcome)) + 
+    geom_bar(aes(fill=factor(attacker_outcome)), width=1, colour="black") +
+    ggtitle("RESULTADO BATALLAS ATACANTE") +
+    xlab("Resultado") + ylab("No de Batallas") + coord_flip()
+print(g1)
+
+```
+En la grafica anterior se aprecia que por regla general, la mayoria de batallas (86.5%) han sido vencidas por el atacante. A continuacion comprobaremos si el tamaño del ejercito tiene relacion con este resultado.
+
+
+```{r}
+ggplot(battle, aes(defender_size, attacker_size)) +
+    geom_point(aes(color = attacker_outcome)) +
+    labs(x="Defender size", y="Attacker size", title="Attackers VS Defenders by attacker outcome")
+```
+
+
+
+```{r}
+t.test(battle$attacker_size~battle$attacker_outcome)
+
+boxplot(attacker_size~attacker_outcome, data=battle, main="Box visualization of a t-test", 
+        xlab="Attacker outcome", ylab="Attacker army size", col=c('mistyrose', 'powderblue'))
+```
+
+De la grafica anterior se puede apreciar que las medias del ejercito cuando pierde y cuando gana son muy dispares, pero en cambio, el p-value es mayor a 0.05 con lo que no se acepta que las medias sean diferentes. Esto es incorrecto y puede ser debido al limitado numero de datos que tenemos. Para evitar esto, generaremos nuevos datos con la funcion  SMOTE.
+Los datos los generaremos a partir del atributo ATTACKER_OUTCOME, que es realmente el que vamos a analizar en funcion del tamaño de los ejercitos. Para poder utilizar SMOTE con este atributo, previamente tenemos que cambiar la clase del atributo de number a factor.
+
+
+
+
+
+Volvemos a lanzar el test de Student
+```{r}
+t.test(batallasDef$attacker_size~batallasDef$attacker_outcome)
+
+boxplot(attacker_size~attacker_outcome, data=batallasDef, main="Box visualization of a t-test", 
+        xlab="Attacker outcome", ylab="Attacker army size", col=c('mistyrose', 'powderblue'))
+```
+
+
