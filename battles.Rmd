@@ -310,3 +310,7 @@ head(battle_record,4)
 ```
 
 Como ya suponíamos desde un momento, el primer commander es Gregor Clegane
+
+
+
+
