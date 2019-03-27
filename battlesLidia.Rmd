@@ -1,0 +1,175 @@
+---
+title: "Game Of Thrones"
+date: "15 de marzo de 2019"
+output:
+  html_document:
+    df_print: paged 
+    toc : true
+    toc_float: 
+      collapsed: false
+    number_sections: true 
+    theme: cosmo  
+--- 
+```{r setup, include=FALSE, warning=FALSE, error=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+Game of Thrones es un exitoso programa de televisión de fantasía basado en la serie de libros "A Song of Fire and Ice" de George RR Martin. El programa es bien conocido por su paisaje político enormemente complicado, su gran número de personajes y sus frecuentes muertes de personajes.
+
+# Pregunta 1: ¿Hay alguna relación entre quién dirige la batalla y el resultado final de esta?
+A veces, que un grupo gane en algo o no depende mucho del líder que tengan a su disposición. Con esta pregunta vamos a intentar comprobar si el rey y el commander de los ejércitos influye de alguna forma en el resultado final de la batalla. Al final compararemos cada uno de los commanders para averiguar cuál es el mejor de entre todas las batallas de los 5 Reinos. 
+
+El dataset que vamos a utilizar para responder a esta pregunta es el conjunto de datos que recoge las batallas ocurridas en la serie, llamado "The War of the Five Kings" Dataset, que puede ser encontrado en [ https://github.com/chrisalbon/war_of_the_five_kings_dataset] 
+
+```{r echo=FALSE, warning=FALSE}
+# Cargar Librerías
+library(ggplot2)
+library(knitr)
+library(tidyverse)
+
+```
+
+## Lectura de los datos
+```{r}
+datos = readxl::read_xlsx("data/battles.xlsx")
+datos
+```
+
+
+## Preprocesamiento
+### Valores nulos
+¿Cuántos valores nulos hay de cada una de las columnas?
+```{r}
+na_count <-sapply(datos, function(y) sum(length(which(is.na(y)))))
+na_count <- as.data.frame(na_count)
+na_count["cols"] <- colnames(datos)
+na_count <- na_count %>% arrange(desc(na_count))
+
+ggplot(data=na_count, aes(x=cols, y=na_count, color = cols)) + 
+    geom_bar(stat="identity", fill="white")  +coord_flip() + geom_hline(yintercept = 0.6*dim(datos)[1])
+```
+
+Ordenamos las columnas en base al número de valores nulos y vemos cuáles son las 5 columnas con más valores nulos:
+```{r}
+na_count[1:5,]
+
+```
+Como primer paso de preprocesamiento  eliminaremos aquellas columnas que tengan más de un 60% de valores NULOS. Si observamos la gráfica anterior se observa una línea que indica el 60 % de valores nulos
+```{r}
+datos_p1 <- datos[lapply( datos, function(x) sum(is.na(x)) / length(x) ) < 0.6]
+datos_p1
+
+```
+Tras esta eliminación aún tenemos columnas con valores nulos, a continuación se explicarán cuáles han sido las decisiones a tomar:
+* __attacker_king y defender_king__ : se cambiarán los valores nulos por "Without a king"
+* __attacker_2, attacker_3, attacker_4 y defender_2__: son columnas que no hemos considerado de interés, solo el primer atacante y el primer defensor, por lo que serán eliminadas
+* __defender_1__: se sustituirá el valor por "Pedestrians"
+* __ major_death, major_capture, notes y summer__: columnas irrelevantes para responder a la pregunta, por lo tanto serán eliminadas
+* __attacker_size__: los valores faltantes serán sustituidos por la media del tamaño del ejército para cada uno de los reyes
+* __defender_size__: los valores faltantes serán sustituidos por la media del tamaño del ejército para cada uno de los reyes
+* __attacker_commander y defender_commander__: estos valores serán sustitidos por "Without a commander"
+* __location__: como se tiene la información de la región se optará por eliminar esta columna
+* __attacker_outcome__: solo hay un valor nulo, por lo que se ha decidido buscar la información correspondiente [https://gameofthrones.fandom.com/wiki/Battle_of_Winterfell] y rellenar este dato
+
+A continuación se muestra el código ncesario para llevar a cabo estas tareas:
+
+```{r echo=TRUE, results='hide'}
+#Sustituir valores nulos
+datos_p2 <- datos_p1
+datos_p2$attacker_king <- datos_p2$attacker_king %>% replace_na("Without a king")
+datos_p2$defender_king <- datos_p2$defender_king %>% replace_na("Without a king")
+datos_p2$defender_1 <- datos_p2$defender_1 %>% replace_na("Pedestrians")
+datos_p2$attacker_commander <- datos_p2$attacker_commander %>% replace_na("Without a commander")
+datos_p2$defender_commander <- datos_p2$defender_commander %>% replace_na("Without a commander")
+datos_p2$attacker_outcome <- datos_p2$attacker_outcome %>% replace_na("loss")
+
+
+```
+
+
+```{r}
+#sustituir los tamaños de los ejércitos por la media según el rey
+datos_p2$attacker_size <- with(datos_p2, ave(attacker_size, attacker_king,
+    FUN = function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))))
+
+datos_p2$defender_size <- with(datos_p2, ave(defender_size, defender_king,
+    FUN = function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))))
+```
+
+### Selección de atributos
+```{r}
+#Elegir sólo las culumnas de interés para nuestra pregunta
+battle<-datos_p2 %>% select(name,year,attacker_king,defender_king,attacker_outcome,attacker_size,defender_size, attacker_commander, defender_commander)
+
+```
+
+
+```{r}
+#Recoger solo el primer commander que aparezca en la lista
+a <- c()
+
+for (i in 1:length(battle$attacker_commander))
+  a[i] = strsplit(battle$attacker_commander[i], ",")[[1]][1]
+  
+battle$attacker_commander <- a
+
+```
+
+```{r}
+def <- c()
+
+for (i in 1:length(battle$defender_commander))
+  def[i] <- strsplit(battle$defender_commander[i], ",")[[1]][1]
+
+battle$defender_commander <- def
+```
+
+## Visualización
+A continuación mostraremos un grafo que represantará los conflictos que han involucrado a los distintos "commanders". Para ello, previamente cargaremos las librerías necesarias para representar gráficamente estos datos.
+
+
+```{r}
+install.packages("igraph")
+library(readr)
+library(stringr)
+library(igraph)
+library(dplyr)
+library(magrittr)
+library(tidyr)
+library(ggplot2)
+```
+
+Para poder realizar el Grafo agruparemos los datos en función de si la acción es de ataque o de defensa y teniendo en cuenta quién fué el atacante que desempeñó dicha acción. En este grafo se tenrán en cuenta el número de victorias y de derrotas para determinar cuál es el mejor commander.
+```{r}
+commander_tally <- battle %>% 
+  gather(attacker, attacker_commander, matches('attacker_\\d')) %>%
+  gather(defender, defender_commander, matches('defender_\\d')) %>% 
+  mutate(winner_commander = ifelse(attacker_outcome == 'win', attacker_commander, defender_commander),
+         loser_commander = ifelse(attacker_outcome == 'win', defender_commander, attacker_commander)) %>% 
+  select(loser_commander, winner_commander, name) %>% 
+  na.omit
+
+commander_graph <- commander_tally %>% 
+  select(loser_commander, winner_commander) %>% 
+  as.matrix %>%  #just an annoying thing you have to do
+  graph_from_edgelist
+
+V(commander_graph)$wins <- degree(commander_graph, mode='in')
+V(commander_graph)$losses <- degree(commander_graph, mode='out')
+V(commander_graph)$battles <- degree(commander_graph, mode='all')
+E(commander_graph)$weight <- 1
+
+simple_commander_graph <- commander_graph %>% simplify(remove.loops = F)
+
+E(commander_graph)$battle_name <- commander_tally$name
+```
+Por último, tomaremos este grafo y lo representaremos, viendo así cuáles son los commander que han salido victoriosos en la mayor parte de las ocasiones y viceversa.
+
+```{r}
+f <- colorRampPalette(c('green', 'red'))
+colors <- f(length(unique(E(simple_commander_graph)$weight)))
+colors <- colors[E(simple_commander_graph)$weight]
+
+plot(simple_commander_graph, edge.arrow.size = 0,002, edge.width = E(commander_graph)$weight, edge.color=colors, 
+     vertex.frame.color=NA, layout = layout.auto, edge.curved = 0.08, vertex.label.cex = 0.6, asp= FALSE, vertex.size= 0.4)
+```
+Confirmando los datos vistos anteriormente, Robb Stark y Gregor Clegane son lo commanders más victoriosos y cuando no existe commander durante la defensa es cuando mayor número de derrotas se producen.
