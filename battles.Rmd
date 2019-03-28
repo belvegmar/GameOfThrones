@@ -82,17 +82,33 @@ datos_p2$attacker_commander <- datos_p2$attacker_commander %>% replace_na("Witho
 datos_p2$defender_commander <- datos_p2$defender_commander %>% replace_na("Without a commander")
 datos_p2$attacker_outcome <- datos_p2$attacker_outcome %>% replace_na("loss")
 
+summary(datos_p2)
 
+```
+
+Como se aprecia en la imagen anterior, la columna de attacker_size tiene un outlier que eliminaremos ya que es muy diferente al resto de valores de la columna.
+```{r}
+#Eliminamos el outlier de la columna attacker_size
+datos_p2<-datos_p2[-28,1:18]
 ```
 
 
 ```{r}
-#sustituir los tamaños de los ejércitos por la media según el rey
-datos_p2$attacker_size <- with(datos_p2, ave(attacker_size, attacker_king,
-    FUN = function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))))
+#sustituir los tamaños de los ejércitos por la media
 
-datos_p2$defender_size <- with(datos_p2, ave(defender_size, defender_king,
-    FUN = function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))))
+for (x in 1:length(datos_p2$defender_size)){
+  if(is.na(datos_p2$defender_size[x])){
+    datos_p2$defender_size[x] = mean(datos_p2$defender_size, na.rm = TRUE)
+  }
+}
+
+for (x in 1:length(datos_p2$attacker_size)){
+  if(is.na(datos_p2$attacker_size[x])){
+    datos_p2$attacker_size[x] = mean(datos_p2$attacker_size, na.rm = TRUE)
+  }
+}
+
+
 ```
 
 ### Selección de atributos
@@ -302,7 +318,6 @@ for (i in 1:length(battle_record$commanders)){
 }
 
 battle_record <- cbind.data.frame(battle_record, ratio)
-#battle_record <- battle_record %>% arrange(desc(ratio))
 ```
 
 ```{r}
