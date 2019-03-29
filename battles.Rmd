@@ -13,29 +13,38 @@ output:
 ```{r setup, include=FALSE, warning=FALSE, error=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
 ```
-Game of Thrones es un exitoso programa de televisión de fantasía basado en la serie de libros "A Song of Fire and Ice" de George RR Martin. El programa es bien conocido por su paisaje político enormemente complicado, su gran número de personajes y sus frecuentes muertes de personajes.
+Game of Thrones es un exitoso programa de televisión de fantasía basado en la serie de libros "A Song of Fire and Ice" de George RR Martin. La serie es bien conocida por su paisaje político enormemente complicado, su gran número de personajes y sus frecuentes muertes de personajes.
 
-# Pregunta 1: ¿Hay alguna relación entre quién dirige la batalla y el resultado final de esta?
-A veces, que un grupo gane en algo o no depende mucho del líder que tengan a su disposición. Con esta pregunta vamos a intentar comprobar si el rey y el commander de los ejércitos influye de alguna forma en el resultado final de la batalla. Al final compararemos cada uno de los commanders para averiguar cuál es el mejor de entre todas las batallas de los 5 Reinos. 
+A continución, mostraremos el estudio realizado sobre un dataset de la serie, que concretamente contiene información sobre las batallas que han tenido lugar a lo largo de los 5 primeros libros del escritor. Este dataset se llama *The War of the Five Kings Dataset* y puede ser encontrado en [ https://github.com/chrisalbon/war_of_the_five_kings_dataset]. El estudio se ha basado en el planteamiento inicial de dos preguntas que se pretende que sean respondidas con el análisis realizado sobre los datos.
 
-El dataset que vamos a utilizar para responder a esta pregunta es el conjunto de datos que recoge las batallas ocurridas en la serie, llamado "The War of the Five Kings" Dataset, que puede ser encontrado en [ https://github.com/chrisalbon/war_of_the_five_kings_dataset] 
+Para falicitar el tratamiento de los datos sobre ambas preguntas, se ha realizado un preprocesamiento común enfocando a los atributos necesarios para la respuesta a cada pregunta. En concreto, las preguntas que se desean responder son las siguientes:
+**¿Hay alguna relación entre quién dirige la batalla y el resultado final de esta?**
+**¿Afecta el tamaño del ejército de los atacantes y los defensores en el resultado final de la batalla?**
+
+Lo sabremos a continuación...
 
 ```{r echo=FALSE, warning=FALSE}
 # Cargar Librerías
 library(ggplot2)
 library(knitr)
 library(tidyverse)
+library(readr)
+library(igraph)
+library(dplyr)
+library(magrittr)
+library(tidyr)
+library(bestNormalize)
 
 ```
 
-## Lectura de los datos
+# Lectura de los datos
 ```{r}
 datos = readxl::read_xlsx("data/battles.xlsx")
 datos
 ```
 
 
-## Preprocesamiento
+# Preprocesamiento
 ### Valores nulos
 ¿Cuántos valores nulos hay de cada una de las columnas?
 ```{r}
@@ -94,7 +103,7 @@ datos_p2<-datos_p2[-28,1:18]
 
 
 ```{r}
-#sustituir los tamaños de los ejércitos por la media
+#Sustituimos los valores nulos de las  columnas attacker_size y defender_size por la media de los ejercitos de esas columnas
 
 for (x in 1:length(datos_p2$defender_size)){
   if(is.na(datos_p2$defender_size[x])){
@@ -113,7 +122,7 @@ for (x in 1:length(datos_p2$attacker_size)){
 
 ### Selección de atributos
 ```{r}
-#Elegir sólo las culumnas de interés para nuestra pregunta
+#Elegir sólo las columnas de interés para nuestras preguntas
 battle<-datos_p2 %>% select(name,year,attacker_king,defender_king,attacker_outcome,attacker_size,defender_size, attacker_commander, defender_commander)
 
 ```
@@ -138,6 +147,12 @@ for (i in 1:length(battle$defender_commander))
 
 battle$defender_commander <- def
 ```
+
+Una vez realizado el preprocesamiento general, pasaremos a centrarnos en cada una de las preguntas.
+
+
+# Pregunta 1: ¿Hay alguna relación entre quién dirige la batalla y el resultado final de esta?
+A veces, que un grupo gane en algo o no depende mucho del líder que tengan a su disposición. Con esta pregunta vamos a intentar comprobar si el rey y el commander de los ejércitos influye de alguna forma en el resultado final de la batalla. Al final compararemos cada uno de los commanders para averiguar cuál es el mejor de entre todas las batallas de los 5 Reinos. 
 
 ## Visualización
 ### ¿Qué rey ha atacado más?
@@ -173,6 +188,42 @@ g2 <- ggplot(data = battle, aes(x = defender_king,fill=attacker_outcome)) +
 print(g2)
 ```
 Según el gráfico anterior parecer ser que las casas que están más enfrentadas son la Baratheon y la Stark, por lo tanto puede que el commander que más exito tenga sea uno perteneciente a una de estas casas, ya que el número de batallas es meyor y por lo tanto se tendrán más datos. Aún así, esto es solo una suposición, tendremos que indagar un poco más para poder contestar a la pregunta principal.
+
+### Conflictos entre comandantes
+A continuación, representaremos una gráfica en la que se apreciarán todos los comandantes y los conflictos que ha habido entre ellos.
+
+```{r}
+commander_tally <- battle %>% 
+  gather(attacker, attacker_commander, matches('attacker_\\d')) %>%
+  gather(defender, defender_commander, matches('defender_\\d')) %>% 
+  mutate(winner_commander = ifelse(attacker_outcome == 'win', attacker_commander, defender_commander),
+         loser_commander = ifelse(attacker_outcome == 'win', defender_commander, attacker_commander)) %>% 
+  select(loser_commander, winner_commander, name) %>% 
+  na.omit
+
+commander_graph <- commander_tally %>% 
+  select(loser_commander, winner_commander) %>% 
+  as.matrix %>%  #just an annoying thing you have to do
+  graph_from_edgelist
+
+V(commander_graph)$wins <- degree(commander_graph, mode='in')
+V(commander_graph)$losses <- degree(commander_graph, mode='out')
+V(commander_graph)$battles <- degree(commander_graph, mode='all')
+E(commander_graph)$weight <- 1
+
+simple_commander_graph <- commander_graph %>% simplify(remove.loops = F)
+
+E(commander_graph)$battle_name <- commander_tally$name
+```
+
+```{r}
+f <- colorRampPalette(c('green', 'red'))
+colors <- f(length(unique(E(simple_commander_graph)$weight)))
+colors <- colors[E(simple_commander_graph)$weight]
+
+plot(simple_commander_graph, edge.arrow.size = 0,002, edge.width = E(commander_graph)$weight, edge.color=colors, 
+     vertex.frame.color=NA, layout = layout.auto, edge.curved = 0.08, vertex.label.cex = 0.6, asp= FALSE, vertex.size= 0.4)
+```
 
 
 ### Número de batallas ganadas por cada commander atacante
@@ -307,14 +358,16 @@ grid.arrange(g1, g2, g3, g4, ncol=4)
 
 ```
 
-Por último, hemos definido un ratio que nos servirá para escoger qué commander es el mejor de entre todos los que hay, este índice consiste en el ratio entre las batallas ganadas (attack_win + deffend_win) y las batallas totales en las que ha participado.
+Por último, hemos definido un ratio que nos servirá para escoger qué commander es el mejor de entre todos los que hay, este índice consiste en el computo de las batallas ganadas (attack_win + defend_win) penalizando las batallas perdidas (attack_loss + defend_loss) entre las batallas totales en las que ha participado.
 ```{r}
 ratio <- c()
 for (i in 1:length(battle_record$commanders)){
-  f1 = battle_record$attack_win[i]/38
-  f2 = battle_record$defend_win[i]/38
+  f1 = battle_record$attack_win[i]/37
+  f2 = battle_record$defend_win[i]/37
+  f3 = battle_record$attack_loss[i]/37
+  f4 = battle_record$defend_loss[i]/37
 
-  ratio[i] = f1+f2
+  ratio[i] = (f1+f2)-(f3+f4)
 }
 
 battle_record <- cbind.data.frame(battle_record, ratio)
@@ -327,5 +380,104 @@ head(battle_record,4)
 Como ya suponíamos desde un momento, el primer commander es Gregor Clegane
 
 
+# ¿Afecta el tamaño del ejército de los atacantes y los defensores en el resultado final de la batalla?
+
+Tiene coherencia que cuanto más grande sea el ejército, mas posibilidades hay de luchar con ventaja y superioridad para ganar una batalla, pero ¿realmente afecta el tamaño en el resultado? 
+Para responder a esta pregunta, nos basaremos en las columnas de *attacker_size*, *defender_size* y *attacker_outcome*.
+
+## Visualización
+
+```{r}
+g1 <- ggplot(aes(x = factor(attacker_outcome)), data = battle, fill=factor(attacker_outcome)) + 
+    geom_bar(aes(fill=factor(attacker_outcome)), width=1, colour="black") +
+    ggtitle("RESULTADO BATALLAS ATACANTE") +
+    xlab("Resultado") + ylab("No de Batallas") + coord_flip()
+print(g1)
+```
+En la grafica anterior se aprecia que por regla general, la mayoria de batallas (86.5%) han sido vencidas por el atacante. A continuacion comprobaremos si el tamaño del ejercito tiene relacion con este resultado.
+
+```{r}
+ggplot(battle, aes(defender_size, attacker_size)) +
+    geom_point(aes(color = attacker_outcome)) +
+    labs(x="Defender size", y="Attacker size", title="Attackers VS Defenders by attacker outcome")
+```
+
+Vemos que por regla general, gran parte de batallas tienen aproximadamente el mismo tamaño en cuanto a ejército se refiere, pero tambien se observan algunos valores en los que el tamaño del ejército del defensor es mayor que el de atacante, y aún asi es el atacante el que gana la batalla. A su vez, se comprueba que hay otros valores en los que el tamaño del ejército del atacante es mayor al del defensor y aún así la batalla no es ganada por los atacantes.
+
+## Test estadísticos para responder a la pregunta
+Para responder a nuestra pregunta, lanzaremos el test estadístico parámetrico t-Student, el cual sirve para comparar la media de dos muestras pudiendo comprobar si estas son iguales o no. Para poder utilizar este test, debemos comprobar en primer lugar si la distribución de los atributos que vamos a analizar sigue una distribución normal.
+
+### ¿Siguen attacker_size y defender_size una distribución normal?
+
+```{r}
+#Historiogramas de attacker_size y defender_size
+hist(battle$defender_size, col = "blue", nclass = 20)
+hist(battle$attacker_size, col = "blue", nclass = 20)
+```
+
+Los histogramas nos dan una visión general de la distribución que siguen los datos para ambas columnas, pero no nos proporciona un resultado definitivo de si realmente la distribución es gaussiana o no. Aparentemente, para ambos atributos, los datos no son normalizados, lo corroboraremos con el test de Saphiro.
+
+El test de Saphiro se usa para contrastar la normalidad de un conjunto de datos, estableciendose como hipotesis nula que los datos si siguen una distribución normal. 
+
+```{r}
+#Corroboramos con el test de Saphiro que la distribucion no es normal
+shapiro.test(battle$defender_size)
+shapiro.test(battle$attacker_size)
+```
+EL resultado que obtenemos para ambas clases es que el p-valor es menor a 0.05, por lo que rechazamos que la distribución se normal, y confirmamos por o tanto lo que intuíamos con la visualización de los histogramas.
+
+### Normalización de atributos
+Para conocer la técnica que mejor normaliza la distribucion de las variables, lanzaremos la funcion *bestNormalize*, la cual nos indica qué tecnica es más óptima para normalizar los datos de un atributo en concreto.
+
+```{r}
+#Mejor tecnica de normalizacion para ATTACKER_SIZE
+(boxcox_obj <- bestNormalize(battle$attacker_size))
+```
+Como se aprecia, la técnica de mejor normalización escogida es orderNorm, por lo que procedemos a ejecutarla para este atributo 
+
+```{r}
+#Normalizamos los datos para attacker_size
+x<-battle$attacker_size
+
+orderNorm_obj <- orderNorm(x)
+predict(orderNorm_obj, newdata = battle$attacker_size)
+battle$attacker_size = orderNorm_obj$x.t 
+hist(battle$attacker_size, col = "blue", nclass = 20)
+```
+
+Como se aprecia en la imagen anterior, vemos un histograma en el que los datos aparentemente siguen una distribución normal. Repetimos el proceso para el atributo defender_size.
+
+```{r}
+#Mejor tecnica de normalizacion para DEFENDER_SIZE
+(boxcox_obj <- bestNormalize(battle$defender_size))
+```
 
 
+```{r}
+#Normalizamos los datos para defender_size
+y<-battle$defender_size
+
+orderNorm_obj2 <- orderNorm(y)
+predict(orderNorm_obj2, newdata = battle$defender_size)
+battle$defender_size= orderNorm_obj2$x.t 
+hist(battle$defender_size, col = "blue", nclass = 20)
+```
+
+Para este caso, también apreciamos que el histograma sigue una distribución visiblemente normal, procedemos a confirmarlo volviendo a lanzar el test de Saphiro.
+
+```{r}
+#Test de Saphiro con los datos normalizados
+shapiro.test(battle$defender_size)
+shapiro.test(battle$attacker_size)
+```
+
+Tras haber aplicado orderNorm para normalizar las columnas *attacker_size* y *defender_size*, comprobamos que tan solo en el caso de attacker_size se ha realizado una correcta normalización, por lo que sólo tendremos en cuenta este atributo para el resto del estudio, ya que el hecho de que defender_size no siga una distribución normal hará que el resultado del test t-Student para esa columna no sea fiable.
+
+### Test t-Student
+```{r}
+t.test(battle$attacker_size~battle$attacker_outcome)
+
+boxplot(attacker_size~attacker_outcome, data=battle, main="Box visualization of a t-test", 
+        xlab="Attacker outcome", ylab="Attacker army size", col=c('mistyrose', 'powderblue'))
+```
+Tras lanzar el test estadístico hemos podido afirmar que las medias son diferentes entre sí, es decir, si las medias de los ejércitos fuesen igual tanto para el caso de que la batalla sea ganada o perdida esto significaría que la variable "attacker army size" no influye en el resultado final de la batalla. 
