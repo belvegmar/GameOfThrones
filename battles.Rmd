@@ -397,12 +397,16 @@ print(g1)
 En la grafica anterior se aprecia que por regla general, la mayoria de batallas (86.5%) han sido vencidas por el atacante. A continuacion comprobaremos si el tamaño del ejercito tiene relacion con este resultado.
 
 ```{r}
-ggplot(battle, aes(defender_size, attacker_size)) +
-    geom_point(aes(color = attacker_outcome)) +
+ggplot(data = battle, aes(y = attacker_size, x = defender_size)) +
+    geom_smooth(method = "lm", se = F, fullrange = T, colour = "steelblue", size = 1) +
+    geom_smooth(method = "loess", formula = y ~ x, se = F, colour = "pink", size = 3) +
+    geom_point(aes(color=attacker_outcome)) + 
+    ggtitle("Attacker Size vs Defender Size on Outcome of the War")
     labs(x="Defender size", y="Attacker size", title="Attackers VS Defenders by attacker outcome")
 ```
 
 Vemos que por regla general, gran parte de batallas tienen aproximadamente el mismo tamaño en cuanto a ejército se refiere, pero tambien se observan algunos valores en los que el tamaño del ejército del defensor es mayor que el de atacante, y aún asi es el atacante el que gana la batalla. A su vez, se comprueba que hay otros valores en los que el tamaño del ejército del atacante es mayor al del defensor y aún así la batalla no es ganada por los atacantes.
+También podemos afirmar a partir de las líneas de tendencia representadas, que cuanto mayor es el tamaño del ejército del atacante, mayor es el tamaño del ejército del defensor.
 
 ## Test estadísticos para responder a la pregunta
 Para responder a nuestra pregunta, lanzaremos el test estadístico parámetrico t-Student, el cual sirve para comparar la media de dos muestras pudiendo comprobar si estas son iguales o no. Para poder utilizar este test, debemos comprobar en primer lugar si la distribución de los atributos que vamos a analizar sigue una distribución normal.
