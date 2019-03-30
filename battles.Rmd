@@ -380,7 +380,7 @@ head(battle_record,4)
 Como ya suponíamos desde un momento, el primer commander es Gregor Clegane
 
 
-# ¿Afecta el tamaño del ejército de los atacantes y los defensores en el resultado final de la batalla?
+# Pregunta 2: ¿Afecta el tamaño del ejército de los atacantes y los defensores en el resultado final de la batalla?
 
 Tiene coherencia que cuanto más grande sea el ejército, mas posibilidades hay de luchar con ventaja y superioridad para ganar una batalla, pero ¿realmente afecta el tamaño en el resultado? 
 Para responder a esta pregunta, nos basaremos en las columnas de *attacker_size*, *defender_size* y *attacker_outcome*.
@@ -481,3 +481,11 @@ boxplot(attacker_size~attacker_outcome, data=battle, main="Box visualization of 
         xlab="Attacker outcome", ylab="Attacker army size", col=c('mistyrose', 'powderblue'))
 ```
 Tras lanzar el test estadístico hemos podido afirmar que las medias son diferentes entre sí, es decir, si las medias de los ejércitos fuesen igual tanto para el caso de que la batalla sea ganada o perdida esto significaría que la variable "attacker army size" no influye en el resultado final de la batalla. 
+
+# Conclusiones
+Tras realizar este trabajo hemos podido concluir que:
+- El Data Science es un campo que puede ser aplicado a todos los ámbitos que se nos ocurran, es decir, no sólo sirven para campos "comunes" sino que también se pueden aplicar al ocio o al entretenimiento, como es el caso de este conjunto de datos.
+- El proceso previo a la extracción de conocimiento, es decir, la limpieza y preprocesamiento de los datos es una parte fundamental para poder sacar provecho de los datos. Sin estos pasos previos no tendríamos datos de calidad a los que luego aplicar algoritmos de minería de datos.
+- Tal como vimos en teoría, Data Science es un campo interdisciplinar que involucra muchísmos campos, en nuestro caso, hemos tenido que aplicar conocimiento tanto de Estadística (test estadísticos), matemáticas, Ingeniería (implementación del código) y Aprendizaje Automático.
+- El uso de herramientas ya implementadas, como por ejemplo los paquetes de R (Tidyverse) son fundamentales a la hora de optimizar el trabajo ya que facilitan muchas de las tareas que se hacen a la hora de intentar extraer conocimiento de los datos.
+
