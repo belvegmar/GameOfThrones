@@ -23,7 +23,7 @@ Para falicitar el tratamiento de los datos sobre ambas preguntas, se ha realizad
 
 Lo sabremos a continuación...
 
-```{r echo=FALSE, warning=FALSE}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 # Cargar Librerías
 library(ggplot2)
 library(knitr)
@@ -69,15 +69,16 @@ datos_p1
 
 ```
 Tras esta eliminación aún tenemos columnas con valores nulos, a continuación se explicarán cuáles han sido las decisiones a tomar:
-* __attacker_king y defender_king__ : se cambiarán los valores nulos por "Without a king"
-* __attacker_2, attacker_3, attacker_4 y defender_2__: son columnas que no hemos considerado de interés, solo el primer atacante y el primer defensor, por lo que serán eliminadas
-* __defender_1__: se sustituirá el valor por "Pedestrians"
-* __ major_death, major_capture, notes y summer__: columnas irrelevantes para responder a la pregunta, por lo tanto serán eliminadas
-* __attacker_size__: los valores faltantes serán sustituidos por la media del tamaño del ejército para cada uno de los reyes
-* __defender_size__: los valores faltantes serán sustituidos por la media del tamaño del ejército para cada uno de los reyes
-* __attacker_commander y defender_commander__: estos valores serán sustitidos por "Without a commander"
-* __location__: como se tiene la información de la región se optará por eliminar esta columna
-* __attacker_outcome__: solo hay un valor nulo, por lo que se ha decidido buscar la información correspondiente [https://gameofthrones.fandom.com/wiki/Battle_of_Winterfell] y rellenar este dato
+
+1.  __attacker_king y defender_king__ : se cambiarán los valores nulos por "Without a king"
+2.  __attacker_2, attacker_3, attacker_4 y defender_2__: son columnas que no hemos considerado de interés, solo el primer atacante y el primer defensor, por lo que serán eliminadas
+3.  __defender_1__: se sustituirá el valor por "Pedestrians"
+4.  __major_death, major_capture, notes y summer__: columnas irrelevantes para responder a la pregunta, por lo tanto serán eliminadas
+5.  __attacker_size__: los valores faltantes serán sustituidos por la media del tamaño del ejército para cada uno de los reyes
+6.  __defender_size__: los valores faltantes serán sustituidos por la media del tamaño del ejército para cada uno de los reyes
+7.  __attacker_commander y defender_commander__: estos valores serán sustitidos por "Without a commander"
+8.  __location__: como se tiene la información de la región se optará por eliminar esta columna
+9.  __attacker_outcome__: solo hay un valor nulo, por lo que se ha decidido buscar la información correspondiente [https://gameofthrones.fandom.com/wiki/Battle_of_Winterfell] y rellenar este dato
 
 A continuación se muestra el código ncesario para llevar a cabo estas tareas:
 
@@ -91,11 +92,15 @@ datos_p2$attacker_commander <- datos_p2$attacker_commander %>% replace_na("Witho
 datos_p2$defender_commander <- datos_p2$defender_commander %>% replace_na("Without a commander")
 datos_p2$attacker_outcome <- datos_p2$attacker_outcome %>% replace_na("loss")
 
-summary(datos_p2)
 
 ```
 
-Como se aprecia en la imagen anterior, la columna de attacker_size tiene un outlier que eliminaremos ya que es muy diferente al resto de valores de la columna.
+```{r}
+summary(datos_p2)
+```
+
+
+Como se aprecia en la imagen anterior, la columna de attacker_size tiene un outlier (su máximo es 21000) que eliminaremos ya que es muy diferente al resto de valores de la columna.
 ```{r}
 #Eliminamos el outlier de la columna attacker_size
 datos_p2<-datos_p2[-28,1:18]
@@ -344,16 +349,17 @@ battle_record <- cbind.data.frame(commanders, attack_win, attack_loss, defend_wi
 ```
 
 ```{r, fig.height=10}
-library(gridExtra)
-g1 <- ggplot(battle_record, aes(x=commanders, y = c(attack_win))) + geom_bar(stat="identity") + coord_flip() +theme_minimal()
+library(cowplot)
 
-g2 <- ggplot(battle_record, aes(x=commanders, y = c(attack_loss))) + geom_bar(stat="identity") + coord_flip() +theme_minimal() + theme(axis.text.y = element_blank(), axis.title.y =  element_blank()) 
+g1 <- ggplot(battle_record, aes(x=commanders, y = c(attack_win))) + geom_bar(stat="identity") + coord_flip() +theme_minimal() + ylim(0,4)
 
-g3 <- ggplot(battle_record, aes(x=commanders, y = c(defend_win))) + geom_bar(stat="identity") + coord_flip() +theme_minimal() + theme(axis.text.y = element_blank(), axis.title.y =  element_blank()) 
+g2 <- ggplot(battle_record, aes(x=commanders, y = c(attack_loss))) + geom_bar(stat="identity") + coord_flip() +theme_minimal() + theme(axis.text.y = element_blank(), axis.title.y =  element_blank()) + ylim(0,4)
 
-g4 <- ggplot(battle_record, aes(x=commanders, y = c(defend_loss))) + geom_bar(stat="identity") + coord_flip()+theme_minimal() + theme(axis.text.y = element_blank(), axis.title.y =  element_blank()) + ylim(0,1.5)
+g3 <- ggplot(battle_record, aes(x=commanders, y = c(defend_win))) + geom_bar(stat="identity") + coord_flip() +theme_minimal() + theme(axis.text.y = element_blank(), axis.title.y =  element_blank()) + ylim(0,4)
 
-grid.arrange(g1, g2, g3, g4, ncol=4)
+g4 <- ggplot(battle_record, aes(x=commanders, y = c(defend_loss))) + geom_bar(stat="identity") + coord_flip()+theme_minimal() + theme(axis.text.y = element_blank(), axis.title.y =  element_blank()) + ylim(0,1.5)+ ylim(0,4)
+
+plot_grid(g1,g2,g3,g4,  align='h', ncol = 4, rel_widths  = c(2,1,1,1))
 
 
 ```
@@ -488,8 +494,9 @@ Tras lanzar el test estadístico hemos podido afirmar que las medias son diferen
 
 # Conclusiones
 Tras realizar este trabajo hemos podido concluir que:
-- El Data Science es un campo que puede ser aplicado a todos los ámbitos que se nos ocurran, es decir, no sólo sirven para campos "comunes" sino que también se pueden aplicar al ocio o al entretenimiento, como es el caso de este conjunto de datos.
-- El proceso previo a la extracción de conocimiento, es decir, la limpieza y preprocesamiento de los datos es una parte fundamental para poder sacar provecho de los datos. Sin estos pasos previos no tendríamos datos de calidad a los que luego aplicar algoritmos de minería de datos.
-- Tal como vimos en teoría, Data Science es un campo interdisciplinar que involucra muchísmos campos, en nuestro caso, hemos tenido que aplicar conocimiento tanto de Estadística (test estadísticos), matemáticas, Ingeniería (implementación del código) y Aprendizaje Automático.
-- El uso de herramientas ya implementadas, como por ejemplo los paquetes de R (Tidyverse) son fundamentales a la hora de optimizar el trabajo ya que facilitan muchas de las tareas que se hacen a la hora de intentar extraer conocimiento de los datos.
+
+* El Data Science es un campo que puede ser aplicado a todos los ámbitos que se nos ocurran, es decir, no sólo sirven para campos "comunes" sino que también se pueden aplicar al ocio o al entretenimiento, como es el caso de este conjunto de datos.
+* El proceso previo a la extracción de conocimiento, es decir, la limpieza y preprocesamiento de los datos es una parte fundamental para poder sacar provecho de los datos. Sin estos pasos previos no tendríamos datos de calidad a los que luego aplicar algoritmos de minería de datos.
+* Tal como vimos en teoría, Data Science es un campo interdisciplinar que involucra muchísmos campos, en nuestro caso, hemos tenido que aplicar conocimiento tanto de Estadística (test estadísticos), matemáticas, Ingeniería (implementación del código) y Aprendizaje Automático.
+* El uso de herramientas ya implementadas, como por ejemplo los paquetes de R (Tidyverse) son fundamentales a la hora de optimizar el trabajo ya que facilitan muchas de las tareas que se hacen a la hora de intentar extraer conocimiento de los datos.
 
