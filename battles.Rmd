@@ -420,7 +420,7 @@ Para responder a nuestra pregunta, lanzaremos el test estadístico parámetrico 
 ### ¿Siguen attacker_size y defender_size una distribución normal?
 
 ```{r}
-#Historiogramas de attacker_size y defender_size
+#Histogramas de attacker_size y defender_size
 hist(battle$defender_size, col = "blue", nclass = 20)
 hist(battle$attacker_size, col = "blue", nclass = 20)
 ```
