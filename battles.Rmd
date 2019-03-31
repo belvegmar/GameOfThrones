@@ -490,7 +490,7 @@ t.test(battle$attacker_size~battle$attacker_outcome)
 boxplot(attacker_size~attacker_outcome, data=battle, main="Box visualization of a t-test", 
         xlab="Attacker outcome", ylab="Attacker army size", col=c('mistyrose', 'powderblue'))
 ```
-Tras lanzar el test estadístico hemos podido afirmar que las medias son diferentes entre sí, es decir, si las medias de los ejércitos fuesen igual tanto para el caso de que la batalla sea ganada o perdida esto significaría que la variable "attacker army size" no influye en el resultado final de la batalla. 
+Tras lanzar el test estadístico, comprobamos que el p-valor es mayor 0.05, por lo que no podemos rechazar la hipótesis nula de que las medias de los ejércitos para el resultado de la batalla sean iguales. Esto conlleva a no poder afirmar que el tamaño del ejército que ataca es un factor influyente en el resultado final de la batalla.
 
 # Conclusiones
 Tras realizar este trabajo hemos podido concluir que:
